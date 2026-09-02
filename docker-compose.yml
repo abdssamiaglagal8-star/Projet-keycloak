@@ -1,0 +1,82 @@
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7.0
+    container_name: keycloak-s2m
+
+    ports:
+      - "8081:8080"   # <-- host port changé de 8080 à 8081 (8080 était déjà utilisé)
+
+    environment:
+      # Keycloak Admin
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+
+      # PostgreSQL
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak_password
+
+      # HTTP
+      KC_HTTP_ENABLED: "true"
+
+      # Features
+      KC_FEATURES: token-exchange,admin-fine-grained-authz
+
+    command:
+      - start-dev
+      - --import-realm
+      - --spi-theme-static-max-age=-1
+      - --spi-theme-cache-themes=false
+      - --spi-theme-cache-templates=false
+
+    volumes:
+      # Custom themes
+      - ./keycloak/themes/s2m-theme:/opt/keycloak/themes/s2m-theme:ro
+      - ./keycloak/themes/s2m-theme-v2:/opt/keycloak/themes/s2m-theme-v2:ro
+
+      # Custom Keycloak Security Extension
+      - ./keycloak-security-extension/dist/keycloak-security-extension.jar:/opt/keycloak/providers/keycloak-security-extension.jar:ro
+
+      # Automatic realm import
+      - ./realm-config:/opt/keycloak/data/import:ro
+
+    depends_on:
+      - keycloak-db
+
+    networks:
+      - s2m-network
+
+
+  keycloak-db:
+    image: postgres:15
+    container_name: keycloak-db
+
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak_password
+
+    volumes:
+      - keycloak-db-data:/var/lib/postgresql/data
+
+    networks:
+      - s2m-network
+
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis-spring-session
+
+    ports:
+      - "6379:6379"
+
+    networks:
+      - s2m-network
+volumes:
+  keycloak-db-data:
+
+
+networks:
+  s2m-network:
+    driver: bridge

@@ -1,0 +1,4 @@
+ma\s2m\itsp\security\TurnstileAuthenticatorFactory.class
+ma\s2m\itsp\security\EmailOtpAuthenticatorFactory.class
+ma\s2m\itsp\security\EmailOtpAuthenticator.class
+ma\s2m\itsp\security\TurnstileAuthenticator.class
