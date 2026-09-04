@@ -34,6 +34,8 @@ services:
       # Custom themes
       - ./keycloak/themes/s2m-theme:/opt/keycloak/themes/s2m-theme:ro
       - ./keycloak/themes/s2m-theme-v2:/opt/keycloak/themes/s2m-theme-v2:ro
+      - ./keycloak/themes/itsp:/opt/keycloak/themes/itsp:ro
+      - ./keycloak/themes/pki:/opt/keycloak/themes/pki:ro
 
       # Custom Keycloak Security Extension
       - ./keycloak-security-extension/dist/keycloak-security-extension.jar:/opt/keycloak/providers/keycloak-security-extension.jar:ro
