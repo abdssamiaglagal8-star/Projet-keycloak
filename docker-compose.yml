@@ -4,7 +4,7 @@ services:
     container_name: keycloak-s2m
 
     ports:
-      - "8081:8080"   # <-- host port changé de 8080 à 8081 (8080 était déjà utilisé)
+      - "8081:8080"
 
     environment:
       # Keycloak Admin
@@ -75,8 +75,35 @@ services:
 
     networks:
       - s2m-network
+
+
+  # ========== JENKINS ==========
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: jenkins
+
+    ports:
+      - "9090:8080"      # Interface web Jenkins
+      - "50000:50000"    # Agents Jenkins (JNLP)
+
+    environment:
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=true
+
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      # Optionnel : accès Docker depuis Jenkins (pour build d'images)
+      # - /var/run/docker.sock:/var/run/docker.sock
+      # - D:/projet-keycloak:/projet-keycloak
+
+    networks:
+      - s2m-network
+
+    restart: unless-stopped
+
+
 volumes:
   keycloak-db-data:
+  jenkins_home:
 
 
 networks:

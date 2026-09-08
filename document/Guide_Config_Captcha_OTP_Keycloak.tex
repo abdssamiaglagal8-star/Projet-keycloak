@@ -1,0 +1,229 @@
+\documentclass[10pt,a4paper]{article}
+
+\usepackage[margin=1.4cm,top=1.5cm,bottom=1.5cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[french]{babel}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{tcolorbox}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{hyperref}
+\usepackage{tikz}
+\usepackage{amssymb}
+\usepackage{lastpage}
+
+\tcbuselibrary{skins}
+
+\definecolor{s2mblue}{HTML}{0B3D5C}
+\definecolor{s2maccent}{HTML}{1A6B9A}
+\definecolor{s2mlight}{HTML}{E8F1F8}
+\definecolor{s2mgreen}{HTML}{0D7377}
+\definecolor{s2morange}{HTML}{B86E00}
+\definecolor{stepbg}{HTML}{F4F7FA}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\footnotesize\textcolor{s2mblue}{\textbf{Guide Keycloak} --- Captcha Turnstile \& Email OTP}}
+\fancyhead[R]{\footnotesize\textcolor{gray}{S2M / ITSP}}
+\fancyfoot[C]{\footnotesize\thepage\ /\ \pageref{LastPage}}
+\renewcommand{\headrulewidth}{0.5pt}
+\renewcommand{\footrulewidth}{0.3pt}
+
+\titleformat{\section}{\normalsize\bfseries\color{s2mblue}}{\thesection.}{0.3em}{}[\vspace{-0.25em}\textcolor{s2maccent}{\hrule height 0.7pt}]
+\titlespacing*{\section}{0pt}{6pt}{3pt}
+
+\setlength{\parskip}{0.15em}
+\setlength{\parindent}{0pt}
+\setlist[enumerate]{leftmargin=1.15em,itemsep=1pt,topsep=2pt,parsep=0pt}
+\setlist[itemize]{leftmargin=1.15em,itemsep=1pt,topsep=2pt,parsep=0pt}
+
+\newtcolorbox{stepbox}[1]{
+  colback=stepbg, colframe=s2mblue, fonttitle=\bfseries\footnotesize,
+  title={#1}, boxrule=0.7pt, left=3pt,right=3pt,top=1pt,bottom=1pt,
+  before skip=4pt, after skip=4pt, arc=2pt
+}
+
+\newcommand{\screenshot}[1]{%
+  \begin{center}\vspace{1pt}
+  \begin{tikzpicture}
+    \draw[dashed, s2maccent, fill=s2mlight] (0,0) rectangle (14.5,2.15);
+    \node[align=center, text=s2mblue, font=\scriptsize] at (7.25,1.075)
+      {\textit{[ Capture d'\'ecran ]} --- \texttt{#1}};
+  \end{tikzpicture}
+  \vspace{-2pt}\end{center}
+}
+
+\begin{document}
+
+% ========================= PAGE 1 =========================
+\begin{center}
+  {\Large\bfseries\color{s2mblue} Configuration Captcha \& OTP dans Keycloak}\\[2pt]
+  {\normalsize\color{s2maccent} Providers S2M --- Cloudflare Turnstile + Email OTP}\\[1pt]
+  {\footnotesize Plateforme ITSP \quad|\quad Keycloak 26.x \quad|\quad Guide administrateur (3 pages)}
+\end{center}
+\vspace{1pt}
+\textcolor{s2mblue}{\hrule height 1pt}
+\vspace{3pt}
+
+\begin{tcolorbox}[colback=s2mlight,colframe=s2mblue,boxrule=0.5pt,left=4pt,right=4pt,top=2pt,bottom=2pt,arc=2pt]
+  \footnotesize\textbf{Objectif.} Activer sur le \textbf{Browser Flow} : (1) \textbf{S2M Turnstile} (CAPTCHA anti-bots),
+  (2) Username/Password, (3) \textbf{S2M Email OTP} (code 6 chiffres par e-mail).\\
+  \textbf{Pr\'er\'equis :} JAR \texttt{keycloak-security-extension} d\'eploy\'e + th\`eme S2M
+  (\texttt{captcha-turnstile.ftl}, \texttt{email-otp.ftl}) + red\'emarrage Keycloak.
+\end{tcolorbox}
+
+\begin{stepbox}{\'Etape 1 --- Choisir le Realm}
+\begin{enumerate}\footnotesize
+  \item Ouvrir la console admin Keycloak : \texttt{https://<host>/admin}.
+  \item En haut \`a \textbf{gauche}, cliquer sur le s\'electeur de realm.
+  \item S\'electionner le realm de l'application (ex. \texttt{s2m} / \texttt{itsp}).
+\end{enumerate}
+\screenshot{Admin $\rightarrow$ s\'electeur Realm (en-t\^ete gauche)}
+\end{stepbox}
+
+\begin{stepbox}{\'Etape 2 --- Menu Authentication}
+\begin{enumerate}\footnotesize
+  \item Menu gauche : \textbf{Authentication}.
+  \item Onglet \textbf{Flows}.
+  \item Rep\'erer le flux natif \texttt{browser} (connexion web).
+\end{enumerate}
+\screenshot{Authentication $\rightarrow$ Flows $\rightarrow$ liste (browser, \ldots)}
+\end{stepbox}
+
+\begin{stepbox}{\'Etape 3 --- Cr\'eer un flux personnalis\'e (copie)}
+\begin{enumerate}\footnotesize
+  \item Sur la ligne \texttt{browser} $\rightarrow$ menu \textbf{\ldots} / Action $\rightarrow$ \textbf{Duplicate} (ou Copy).
+  \item Nommer le flux : \texttt{browser-s2m-mfa}.
+  \item Valider. \textit{(Ne jamais modifier le flux browser d'origine.)}
+\end{enumerate}
+\screenshot{Duplicate browser $\rightarrow$ nom \guillemotleft{}browser-s2m-mfa\guillemotright{}}
+\end{stepbox}
+
+\newpage
+% ========================= PAGE 2 =========================
+
+\begin{stepbox}{\'Etape 4 --- Ajouter le CAPTCHA (S2M Turnstile)}
+\begin{enumerate}\footnotesize
+  \item Ouvrir le flux \texttt{browser-s2m-mfa}.
+  \item \textbf{Add step} / Add execution.
+  \item Choisir : \textbf{\guillemotleft{}S2M Cloudflare Turnstile CAPTCHA\guillemotright{}} (ID : \texttt{s2m-turnstile}).
+  \item Placer \textbf{en premier} dans le flux. Exigence : \textbf{REQUIRED}.
+\end{enumerate}
+\screenshot{Add step $\rightarrow$ S2M Cloudflare Turnstile CAPTCHA $\rightarrow$ REQUIRED}
+\end{stepbox}
+
+\begin{stepbox}{\'Etape 5 --- Configurer les cl\'es Turnstile (Cloudflare)}
+\begin{enumerate}\footnotesize
+  \item Sur la ligne Turnstile $\rightarrow$ ic\^one \textbf{Config} (engrenage).
+  \item Alias ex. : \texttt{turnstile-prod}. Renseigner :
+\end{enumerate}
+{\footnotesize
+\begin{center}
+\begin{tabular}{@{}>{\bfseries}p{3.6cm} p{5.4cm} p{5.2cm}@{}}
+\toprule
+Param\`etre & R\^ole & Exemple \\
+\midrule
+\texttt{siteKey} & Cl\'e publique (widget) & \texttt{0x4AAAAA\ldots} \\
+\texttt{secretKey} & Cl\'e secr\`ete serveur & \texttt{0x4AAAAA\ldots} \textit{(jamais en Git)} \\
+\texttt{verifyUrl} & API Cloudflare & \texttt{https://challenges.cloudflare.com/turnstile/v0/siteverify} \\
+\texttt{timeoutSeconds} & Timeout HTTP & \texttt{5} \\
+\bottomrule
+\end{tabular}
+\end{center}}
+\textcolor{s2morange}{\footnotesize\textbf{Important :}} secret uniquement dans l'admin Keycloak.
+\screenshot{Config Turnstile --- siteKey + secretKey}
+\end{stepbox}
+
+\begin{stepbox}{\'Etape 6 --- Ajouter Email OTP (S2M)}
+\begin{enumerate}\footnotesize
+  \item \textbf{Add step} $\rightarrow$ \textbf{\guillemotleft{}S2M Email OTP\guillemotright{}} (ID : \texttt{s2m-email-otp}).
+  \item Position : \textbf{apr\`es} Username Password (user d\'ej\`a identifi\'e). Exigence : \textbf{REQUIRED}.
+  \item Config :
+\end{enumerate}
+{\footnotesize
+\begin{center}
+\begin{tabular}{@{}>{\bfseries}p{4cm} p{5.5cm} p{4.5cm}@{}}
+\toprule
+Param\`etre & Description & Valeur conseill\'ee \\
+\midrule
+\texttt{otpTtlSeconds} & Dur\'ee de validit\'e du code & \texttt{300} (5 min) \\
+\texttt{maxAttempts} & Essais max avant blocage & \texttt{5} \\
+\bottomrule
+\end{tabular}
+\end{center}}
+\screenshot{Add step $\rightarrow$ S2M Email OTP $\rightarrow$ TTL + maxAttempts}
+\end{stepbox}
+
+\begin{tcolorbox}[colback=s2mlight,colframe=s2mgreen,boxrule=0.6pt,title={\footnotesize\textbf{Ordre final du flux \texttt{browser-s2m-mfa}}},fonttitle=\color{s2mgreen},left=4pt,right=4pt,top=2pt,bottom=2pt,arc=2pt]
+\footnotesize
+\textbf{1.} S2M Cloudflare Turnstile CAPTCHA --- REQUIRED \quad
+\textbf{2.} Username Password Form --- REQUIRED \quad
+\textbf{3.} S2M Email OTP --- REQUIRED
+\end{tcolorbox}
+
+\newpage
+% ========================= PAGE 3 =========================
+
+\begin{stepbox}{\'Etape 7 --- Lier le flux (Browser Flow binding)}
+\begin{enumerate}\footnotesize
+  \item \textbf{Authentication} $\rightarrow$ onglet \textbf{Bindings} (Flow bindings).
+  \item Champ \textbf{Browser Flow} $\rightarrow$ s\'electionner \texttt{browser-s2m-mfa} $\rightarrow$ Save.
+\end{enumerate}
+Toute connexion web passe d\'esormais par Captcha + OTP.
+\screenshot{Authentication $\rightarrow$ Bindings $\rightarrow$ Browser Flow = browser-s2m-mfa}
+\end{stepbox}
+
+\begin{stepbox}{\'Etape 8 --- Th\`eme de login (\'ecrans utilisateur)}
+\footnotesize Fichiers du th\`eme S2M : \texttt{captcha-turnstile.ftl}, \texttt{email-otp.ftl},
+templates e-mail \texttt{email/html/email-otp.ftl} \& \texttt{email/text/email-otp.ftl}.
+\begin{enumerate}\footnotesize
+  \item \textbf{Realm settings} $\rightarrow$ \textbf{Themes}.
+  \item \textbf{Login theme} et \textbf{Email theme} = th\`eme S2M (ex. \texttt{s2m-theme-v2}) $\rightarrow$ Save.
+\end{enumerate}
+\screenshot{Realm settings $\rightarrow$ Themes $\rightarrow$ Login / Email = s2m-theme-v2}
+\end{stepbox}
+
+\begin{stepbox}{\'Etape 9 --- SMTP (obligatoire pour l'OTP e-mail)}
+\begin{enumerate}\footnotesize
+  \item \textbf{Realm settings} $\rightarrow$ \textbf{Email} : h\^ote, port, from, auth.
+  \item Bouton \textbf{Test connection} --- v\'erifier r\'eception d'un mail de test.
+\end{enumerate}
+Sans SMTP valide, l'\'etape OTP \'echoue \`a l'envoi du code.
+\screenshot{Realm settings $\rightarrow$ Email $\rightarrow$ SMTP + Test connection}
+\end{stepbox}
+
+\section*{Parcours utilisateur (v\'erification)}
+{\footnotesize
+\begin{enumerate}
+  \item Ouvrir l'URL de login de l'application.
+  \item \textbf{\'Ecran 1 --- CAPTCHA :} widget Turnstile $\rightarrow$ valider $\rightarrow$ Continuer.
+  \item \textbf{\'Ecran 2 --- Login :} username + password.
+  \item \textbf{\'Ecran 3 --- OTP :} code 6 chiffres re\c{c}u par e-mail (5 min / 5 essais max).
+  \item Acc\`es si code correct.
+\end{enumerate}}
+
+\begin{tcolorbox}[colback=s2mlight,colframe=s2mblue,boxrule=0.5pt,title={\footnotesize\textbf{Checklist de mise en production}},left=3pt,right=3pt,top=1pt,bottom=1pt,arc=2pt]
+{\footnotesize
+\begin{tabular}{@{}p{0.45cm}p{15cm}@{}}
+$\square$ & JAR \texttt{keycloak-security-extension} d\'eploy\'e + Keycloak red\'emarr\'e \\
+$\square$ & Flux \texttt{browser-s2m-mfa} : Turnstile $\rightarrow$ Username/Password $\rightarrow$ Email OTP (tous REQUIRED) \\
+$\square$ & Cl\'es Turnstile (siteKey + secretKey) renseign\'ees dans la config de l'authenticator \\
+$\square$ & TTL OTP = 300 s, maxAttempts = 5 \\
+$\square$ & Browser Flow li\'e \`a \texttt{browser-s2m-mfa} \\
+$\square$ & Th\`emes Login + Email = S2M \\
+$\square$ & SMTP test\'e (e-mail re\c{c}u) \\
+\end{tabular}}
+\end{tcolorbox}
+
+\vspace{4pt}
+\begin{center}
+{\scriptsize\textcolor{gray}{Document interne S2M / ITSP --- Configuration Keycloak Captcha \& OTP \quad|\quad
+Remplacer les cadres pointill\'es par vos captures d'\'ecran}}
+\end{center}
+
+\end{document}
